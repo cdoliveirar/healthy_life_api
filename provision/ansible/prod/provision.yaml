@@ -1,0 +1,24 @@
+---
+# Ansible playbook
+#
+# @author dgnest (2017).
+
+- name: Common stuff for all the server
+  hosts: all
+  become: true
+  gather_facts: true
+  roles:
+    - contrib/labpositiva.ntp
+    - { role: contrib/labpositiva.authorization, when: "user != 'vagrant'" }
+    - contrib/labpositiva.common
+  tags:
+    - all
+    - common
+    - authorization
+
+- name: execute roles dependences
+  hosts: webservers
+  gather_facts: true
+  become: true
+  roles:
+    - contrib/labpositiva.nginx

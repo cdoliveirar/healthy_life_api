@@ -1,0 +1,94 @@
+# Docker Compose
+# https://docs.docker.com/compose/
+# Usage: docker-compose up
+
+version: '3'
+services:
+
+  # PostgreSQL database.
+  db:
+    restart: always
+    image: postgres:9.6
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=midoc-virtual
+    env_file:
+      - .env
+    volumes:
+      - healthy_life_api-db:/var/lib/postgresql/data # Using the declared volume.
+
+  # RabbitMQ.
+  rabbit:
+    hostname: rabbit
+    image: rabbitmq:3.6.0-management
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=mypass
+      - RABBITMQ_DEFAULT_VHOST=vhost
+    build: provision/docker/rabbit
+    volumes:
+      - healthy_life_api-broker:/var/lib/rabbitmq # Using the declared volume.
+    env_file:
+      - .env
+
+  # Django web server.
+  web:
+    hostname: web
+    ports:
+      - "80:8000"
+      - "8080:5000"
+      - "8000:8000"
+    restart: always
+    image: python:3.6.1
+    environment: &environment
+      - C_FORCE_ROOT=TRUE
+      - MEDIA_URL=/media/
+      - STATIC_URL=/static/
+      - ENVIRONMENT=local
+      - DB_URL=postgres://postgres:postgres@db:5432/midoc-virtual
+      - SECRET_KEY=j36%5df7q5+ov)wz+(=vt7d81ka^xx!5%0)nx=z2i&)*5r^
+      - BROKER_URL=amqp://admin:mypass@rabbit:5672/vhost
+      - REDIS_CACHE_URL=redis://redis:6379/0
+      - REDIS_SESSION_URL=redis://redis:6379/1
+    build:
+      context: .
+      dockerfile: provision/docker/web/Dockerfile
+    volumes:
+      - .:/usr/src
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - worker
+      - redis
+
+  # Celery worker.
+  worker:
+    restart: always
+    image: python:3.6.1
+    environment: *environment
+    command: bash -c "./extras/script/wait-for-it.sh rabbit:5672 && make celery"
+    command: make celery
+    volumes:
+      - .:/usr/src
+    env_file:
+      - .env
+    depends_on:
+      - rabbit
+
+  # Redis.
+  redis:
+    restart: always
+    image: redis:3.2.4
+    environment: *environment
+    env_file: .env
+
+
+volumes:
+  healthy_life_api-db:
+    external:
+      name: healthy_life_api-db
+  healthy_life_api-broker:
+    external:
+      name: healthy_life_api-broker

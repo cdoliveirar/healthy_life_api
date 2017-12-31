@@ -1,0 +1,93 @@
+---
+
+# AWS
+aws_access_key: ""
+aws_secret_access_key: ""
+
+debug: 'True'
+site_domain: "midocvirtual.com"
+site_name: "midocvirtual"
+
+host_server_database: "{{ hostvars['1.web.com']['ansible_private'] }}"
+
+git_tag_deployment: develop
+
+application_environment: 'production'
+application_baseurl: "/"
+application_secret_key: "j36%5df7q5+ov)wz+(=vt7d81ka^xx!5%0)nx=z2i&)*5r^"
+app_port: 9000
+application_proxy_pass: "127.0.0.1:{{ app_port }}"
+app_name: "midoc"
+app_module: "{{ app_name }}.wsgi:application"
+app_name_path: "src"
+app_db_name: "midoc_virtual"
+app_db_test_name: "midoc_virtual_test"
+home: "{{ app_dir_home }}"
+apps_path: "{{ app_dir_home }}/{{ git.name }}"
+app_dir_home: "/home/{{ user }}"
+app_dir: "{{ apps_path }}/{{ app_name_path }}"
+app_dir_static: "{{ app_dir }}/staticfiles"
+app_dir_media: "{{ app_dir }}/media"
+
+common_packages:
+  - "vim"
+  - "git-core"
+
+common_create_files:
+  - path: "{{ app_dir_home }}/.ssh"
+    state: "directory"
+    owner: "{{ user }}"
+  - path: "{{ apps_path }}/src/assets"
+    state: "directory"
+    owner: "{{ user }}"
+
+# Git
+git:
+  repository: "git@gitlab.com:midoc.virtual/api_midoc_vida_sana.git"
+  name: "{{ app_name }}"
+  branch:
+    deployment: "{{git_tag_deployment}}" # Could be a hash, branch or tag name
+
+# opbeat
+opbeat_organization_id: ""
+opbeat_app_id: ""
+opbeat_secret_token: ""
+opbeat_project_path: "{{ app_dir }}"
+
+authorization_key_dir: "~/private/key_file/midoc_virtual"
+authorization:
+    key_dir: "{{ authorization_key_dir }}"
+    key_files:
+      - key: id_rsa
+        src: "{{ authorization_key_dir }}/id_rsa"
+        path: "{{ app_dir_home }}/.ssh/id_rsa"
+        permissions: 0600
+        owner: "{{ user }}"
+        state: file
+      - key: id_rsa.pub
+        src: "{{ authorization_key_dir }}/id_rsa.pub"
+        path: "{{ app_dir_home }}/.ssh/id_rsa.pub"
+        permissions: 0600
+        state: file
+        owner: "{{ user }}"
+
+
+postgresql_port: "{{ host_database_port }}"
+postgresql_user: hacker
+postgresql_pass: hacker
+postgresql_database_name: "{{ app_db_name }}"
+postgresql_database_test_name: "{{ app_db_test_name }}"
+
+common_deployment_apps:
+  midocvirtual:
+    name: "{{ app_name }}"
+    version: "{{ git.branch.deployment }}" # Could be a hash, branch or tag name
+    repo: "{{ git.repository }}"
+    location: "{{ apps_path }}"
+
+deployment_apps:
+  midoc_virtual:
+    name: "{{ app_name }}"
+    version: "{{ git.branch.deployment }}" # Could be a hash, branch or tag name
+    repo: "{{ git.repository }}"
+    location: "{{ apps_path }}"

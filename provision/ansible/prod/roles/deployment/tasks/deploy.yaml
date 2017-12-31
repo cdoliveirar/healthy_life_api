@@ -1,0 +1,18 @@
+---
+
+- name: Update project with git
+  become: true
+  become_user: "{{ user }}"
+  git:
+    repo: "{{ item.value.repo }}"
+    dest: "{{ item.value.location }}"
+    version: "{{ item.value.version }}"
+    accept_hostkey: True
+  with_dict: "{{ deployment_apps | default({}) }}"
+  when:
+    - deployment_apps is defined
+    - "user != 'vagrant'"
+  tags:
+    - apps
+    - deploy
+    - update

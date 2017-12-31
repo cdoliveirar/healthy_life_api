@@ -1,0 +1,36 @@
+---
+
+- name: Common stuff for all the server
+  hosts: all
+  become: true
+  gather_facts: true
+  roles:
+    - contrib/labpositiva.ntp
+  tags:
+    - all
+    - sync
+
+- name: Deploy Application
+  hosts: webservers
+  become: true
+  roles:
+    - contrib/labpositiva.common
+    - contrib/hadenlabs.python
+  tags:
+    - webserver
+    - wait
+    - deploy
+
+- name: deploy code
+  hosts: webservers
+  become: true
+  roles:
+    - deployment
+    - contrib/labpositiva.uwsgi
+    - contrib/labpositiva.nginx
+    - contrib/labpositiva.supervisor
+    - { role: contrib/labpositiva.opbeat, when: "user != 'vagrant'" }
+  tags:
+    - webserver
+    - wait
+    - deploy

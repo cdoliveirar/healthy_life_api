@@ -1,0 +1,165 @@
+---
+
+common_packages:
+  - "postgresql-client"
+  - "redis-tools"
+  - "python-yaml"
+  - "libyaml-dev"
+  - "libcurl4-openssl-dev"
+
+python_pyenv_path: "{{ home }}/pyenv"
+python_pyenv_owner: "{{ user }}"
+python_pyenv_update_git_install: yes
+python_pyenv_python_versions:
+  - "3.6.1"
+
+# python_pyenv_delete_virtualenvs:
+#   - venv_name: "midoc"
+
+python_pyenv_virtualenvs:
+  - venv_name: "midoc"
+    py_version: "3.6.1"
+
+python_pyenv_virtualenvs_default: "midoc"
+virtualenv_path: "{{ python_pyenv_path }}/versions/{{ python_pyenv_virtualenvs_default }}"
+
+python_pyenv_file_requeriments: "{{ apps_path }}/requirements.txt"
+
+python_environment_vars_file: "{{ app_dir_home }}/.pyenvrunrc"
+
+# vars environment
+python_environment_dict:
+  # AWS SQS
+  AWS_ACCESS_KEY: "{{ aws_access_key }}"
+  AWS_SECRET_ACCESS_KEY: "{{ aws_secret_access_key }}"
+  AWS_SQS_ACCESS_KEY: "{{ aws_sqs_access_key }}"
+  AWS_SQS_SECRET_ACCESS_KEY: "{{ aws_sqs_secret_access_key }}"
+  AWS_SQS_REGION: "{{ aws_sqs_region }}"
+  # Application
+  BASE_URL: "{{ application_baseurl }}"
+  REDIS_CACHE_URL: "{{ application_redis_cache }}"
+  REDIS_SESSION_URL: "{{ application_redis_session }}"
+  DEBUG: "{{ debug }}"
+  DB_URL: "postgres://{{ postgresql_user }}:{{ postgresql_pass }}@{{ host_database }}:{{ postgresql_port }}/{{ postgresql_database_name }}"
+  MEDIA_URL: "media/"
+  STATIC_URL: "static/"
+  SITE_DOMAIN: "{{ site_domain }}"
+  SITE_NAME: "{{ site_name }}"
+  SECRET_KEY: "{{ application_secret_key }}"
+  PROJECT: "{{ application_project }}"
+  ENVIRONMENT: "{{ application_environment }}"
+  # Sentry.
+  SENTRY_DSN: "{{ sentry_dsn }}"
+  CULQI_PUBLIC_KEY: "{{ culqi_public_key }}"
+  CULQI_SECRET_KEY: "{{ culqi_secret_key }}"
+
+# uwsgi
+uwsgi_dir_home: "{{ app_dir_home }}"
+uwsgi_user: "{{ user }}"
+
+uwsgi_dict:
+    project: "{{ app_name }}"
+    base: "{{ app_dir_home }}"
+    chdir: "{{ app_dir }}"
+    home: "{{ virtualenv_path }}"
+    pythonpath: "{{ app_dir }}"
+    socket: "{{ application_proxy_pass }}"
+    module: "{{ app_module }}"
+    uid: "{{ user }}"
+    gid: "{{ user }}"
+    master: true
+    vacuum: true
+    virtualenv: "{{ virtualenv_path }}"
+    max_requests: 20000
+    processes: 1
+    threads: 2
+    enable_threads: true
+    # http: ":3097"
+    # touch_reload: "/path/touch/reload"
+    # harakiri: 30
+    # harakiri_verbose: True
+    log_x_forwarded_for: true
+    # stats: "127.0.0.1:9000"
+    log_5xx: true
+    log_slow: 30000
+    # shared_socket: ":80"
+    buffer_size: "8096"
+
+supervisor_path_apps: "{{ app_dir_home }}/supervisor"
+
+supervisor_apps:
+  - program: celery
+    application_environment: "{{ python_environment_vars_file }}"
+    application_path: "{{ app_dir }}"
+    execution: "celery -A {{ app_name }} worker --loglevel=info"
+
+supervisor_programs:
+  - program: uwsgi
+    command: "{{ app_dir_home }}/uwsgi.sh"
+    user: "{{user}}"
+    numprocs: 1
+    instalautostart: true
+    autorestart: true
+    startsecs: 10
+    priority: 990
+  - program: celery
+    command: "{{ supervisor_path_apps }}/celery.sh"
+    user: "{{user}}"
+    numprocs: 1
+    instalautostart: true
+    autorestart: true
+    startsecs: 10
+    priority: 990
+
+# Nginx
+nginx_remove_default_vhost: True
+
+nginx_extra_http_options: |
+    underscores_in_headers on;
+    ignore_invalid_headers off;
+
+nginx_vhost_upstreams:
+  - name: "{{ app_name }}"
+    proxy_pass: "{{ application_proxy_pass}}"
+
+nginx_vhosts:
+  - listen: "80"
+    server_name: "{{site_domain}} *.{{site_domain}} api.{{site_domain}}"
+    charset: "utf-8"
+    client_max_body_size: 75M
+    extra_parameters: |
+      location /elb-status {
+          access_log off;
+          return 200 'A-OK!';
+          # because default content-type is application/octet-stream,
+          # browser will offer to "save the file"...
+          # the next line allows you to see it in the browser so you can test
+          add_header Content-Type text/plain;
+      }
+      location /static/ {
+        alias {{ app_dir_static }}/;
+      }
+      location /media/ {
+        alias {{ app_dir_media }}/;
+      }
+      location / {
+        if ($http_user_agent ~* "Mozilla/5.0 Jorgee"){
+           return 500;
+        }
+        if ($http_x_forwarded_proto = 'http') {
+          return 301 https://$host$request_uri;
+        }
+        include         uwsgi_params;
+        uwsgi_pass_request_headers on;
+        uwsgi_pass      {{ app_name }};
+        add_header P3P 'CP="ALL DSP COR PSAa PSDa OUR NOR ONL UNI COM NAV"';
+        proxy_redirect     off;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        "upgrade";
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto http;
+        proxy_set_header   X-Nginx-Proxy     true;
+      }

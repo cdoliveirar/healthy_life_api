@@ -1,0 +1,20 @@
+0.web.com ansible_host=ec2-34-224-51-164.compute-1.amazonaws.com ansible_port=22 ansible_private=172.31.28.214
+1.web.com ansible_host=ec2-54-88-21-254.compute-1.amazonaws.com ansible_port=22 ansible_private=172.31.21.179
+2.web.com ansible_host=ec2-34-228-144-39.compute-1.amazonaws.com ansible_port=22 ansible_private=172.31.19.188
+
+# Groups
+
+[webservers]
+0.web.com
+1.web.com
+2.web.com
+
+[dbservers:children]
+dbservers.masters
+dbservers.slaves
+
+[dbservers.masters]
+0.web.com
+
+[dbservers.slaves]
+# 0.web.com

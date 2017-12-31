@@ -1,0 +1,25 @@
+# Install a role from the Ansible Galaxy
+- src: labpositiva.authorization
+  version: 0.0.1
+- src: labpositiva.common
+  version: 0.0.2
+- src: labpositiva.nginx
+  version: 0.0.3
+- src: labpositiva.supervisor
+  version: 0.0.1
+- src: labpositiva.uwsgi
+  version: 0.0.1
+- src: hadenlabs.python
+  version: 0.1.0
+- src: labpositiva.superslacker
+  version: 0.0.1
+- src: labpositiva.ntp
+  version: 0.0.1
+- src: labpositiva.opbeat
+  version: 0.0.1
+
+# Install a role from GitHub
+
+# - name: hadenlabs.superslacker
+#   src: https://github.com/hadenlabs/ansible-role-superslacker
+#   version: origin/master
